@@ -1,14 +1,45 @@
 import type { Request, Response } from "express";
 import { ObjectId } from "mongodb";
+import type { Filter, Sort } from "mongodb";
 
 import { postsCollection } from "../database/collections.js";
+import type { Post } from "../types/post.types.js";
+
+const DEFAULT_PAGE = 1;
+const DEFAULT_LIMIT = 20;
+const MAX_LIMIT = 50;
+
+const SORT_OPTIONS: Record<string, Sort> = {
+  newest: { publishedAt: -1 },
+  oldest: { publishedAt: 1 },
+  "title-asc": { "books.bookName": 1 },
+  "title-desc": { "books.bookName": -1 },
+};
+
+const getQueryValue = (value: unknown): string | undefined =>
+  typeof value === "string" ? value.trim() : undefined;
+
+const getPositiveInteger = (
+  value: unknown,
+  defaultValue: number,
+  maximum?: number,
+): number => {
+  const parsedValue = Number(getQueryValue(value));
+
+  if (!Number.isInteger(parsedValue) || parsedValue < 1) {
+    return defaultValue;
+  }
+
+  return maximum ? Math.min(parsedValue, maximum) : parsedValue;
+};
+
+const escapeRegex = (value: string): string =>
+  value.replace(/[.*+?^${}()|[\]\\]/g, "\\$&");
 
 // Create Post
 export const createPost = async (req: Request, res: Response) => {
   try {
-    const post = req.body;
-
-    const result = await postsCollection.insertOne(post);
+    const result = await postsCollection.insertOne(req.body);
 
     res.status(201).json({
       success: true,
@@ -25,23 +56,68 @@ export const createPost = async (req: Request, res: Response) => {
   }
 };
 
-// Get All Posts 
-export const getAllPosts = async (req: Request, res: Response) => {
+// Browse posts with search, filters, sorting, and pagination.
+export const getAllPosts = async (
+  req: Request,
+  res: Response,
+): Promise<void> => {
   try {
-    const posts = await postsCollection
-      .find({
-        isDeleted: false,
-      })
-      .sort({ publishedAt: -1 })
-      .toArray();
+    const page = getPositiveInteger(req.query.page, DEFAULT_PAGE);
+    const limit = getPositiveInteger(req.query.limit, DEFAULT_LIMIT, MAX_LIMIT);
+    const search = getQueryValue(req.query.search);
+    const category = getQueryValue(req.query.category);
+    const condition = getQueryValue(req.query.condition);
+    const listingType = getQueryValue(req.query.listingType);
+    const sort = getQueryValue(req.query.sort) ?? "newest";
+
+    const query: Filter<Post> = {
+      status: "available",
+      isDeleted: { $ne: true },
+    };
+
+    if (search) {
+      const searchPattern = escapeRegex(search);
+
+      query.$or = [
+        { description: { $regex: searchPattern, $options: "i" } },
+        { category: { $regex: searchPattern, $options: "i" } },
+        { "books.bookName": { $regex: searchPattern, $options: "i" } },
+        { "books.publisherName": { $regex: searchPattern, $options: "i" } },
+      ];
+    }
+
+    if (category) {
+      query.category = category;
+    }
+
+    if (condition) {
+      query["books.condition"] = condition;
+    }
+
+    if (listingType === "sell" || listingType === "donate") {
+      query.type = listingType;
+    }
+
+    const sortQuery: Sort = SORT_OPTIONS[sort] ?? { publishedAt: -1 };
+    const [books, total] = await Promise.all([
+      postsCollection
+        .find(query)
+        .sort(sortQuery)
+        .skip((page - 1) * limit)
+        .limit(limit)
+        .toArray(),
+      postsCollection.countDocuments(query),
+    ]);
 
     res.status(200).json({
       success: true,
-      data: posts,
+      books,
+      total,
+      totalPages: Math.max(1, Math.ceil(total / limit)),
+      currentPage: page,
     });
   } catch (error) {
-    console.error(error);
-
+    console.error("GET /api/posts:", error);
     res.status(500).json({
       success: false,
       message: "Failed to fetch posts.",
@@ -53,7 +129,14 @@ export const getAllPosts = async (req: Request, res: Response) => {
 export const getMyPosts = async (req: Request, res: Response) => {
   try {
     // Better Auth middleware পরে req.user.id থেকে আসবে
-    const sellerId = req.query.sellerId;
+    const sellerId = getQueryValue(req.query.sellerId);
+
+    if (!sellerId) {
+      return res.status(400).json({
+        success: false,
+        message: "sellerId is required.",
+      });
+    }
 
     const posts = await postsCollection
       .find({
@@ -80,12 +163,18 @@ export const getMyPosts = async (req: Request, res: Response) => {
 // Get Single Post
 export const getPostById = async (req: Request, res: Response) => {
   try {
-    // const { id } = req.params;
     const id = req.params.id as string;
+
+    if (!ObjectId.isValid(id)) {
+      return res.status(400).json({
+        success: false,
+        message: "Invalid post id.",
+      });
+    }
 
     const post = await postsCollection.findOne({
       _id: new ObjectId(id),
-      isDeleted: false,
+      isDeleted: { $ne: true },
     });
 
     if (!post) {
@@ -112,79 +201,49 @@ export const getPostById = async (req: Request, res: Response) => {
 // Update Post
 export const updatePost = async (req: Request, res: Response) => {
   try {
-    // const { id } = req.params;
     const id = req.params.id as string;
-    const updatedPost = {
-      ...req.body,
-      updatedAt: new Date(),
-    };
+
+    if (!ObjectId.isValid(id)) {
+      return res.status(400).json({ success: false, message: "Invalid post id." });
+    }
 
     const result = await postsCollection.updateOne(
-      {
-        _id: new ObjectId(id),
-        isDeleted: false,
-      },
-      {
-        $set: updatedPost,
-      }
+      { _id: new ObjectId(id), isDeleted: { $ne: true } },
+      { $set: { ...req.body, updatedAt: new Date() } },
     );
 
     if (result.matchedCount === 0) {
-      return res.status(404).json({
-        success: false,
-        message: "Post not found.",
-      });
+      return res.status(404).json({ success: false, message: "Post not found." });
     }
 
-    res.status(200).json({
-      success: true,
-      message: "Post updated successfully.",
-    });
+    res.status(200).json({ success: true, message: "Post updated successfully." });
   } catch (error) {
     console.error(error);
-
-    res.status(500).json({
-      success: false,
-      message: "Failed to update post.",
-    });
+    res.status(500).json({ success: false, message: "Failed to update post." });
   }
 };
 
 // Delete Post (Soft Delete)
 export const deletePost = async (req: Request, res: Response) => {
   try {
-    // const { id } = req.params;
     const id = req.params.id as string;
+
+    if (!ObjectId.isValid(id)) {
+      return res.status(400).json({ success: false, message: "Invalid post id." });
+    }
+
     const result = await postsCollection.updateOne(
-      {
-        _id: new ObjectId(id),
-        isDeleted: false,
-      },
-      {
-        $set: {
-          isDeleted: true,
-          updatedAt: new Date(),
-        },
-      }
+      { _id: new ObjectId(id), isDeleted: { $ne: true } },
+      { $set: { isDeleted: true, updatedAt: new Date() } },
     );
 
     if (result.matchedCount === 0) {
-      return res.status(404).json({
-        success: false,
-        message: "Post not found.",
-      });
+      return res.status(404).json({ success: false, message: "Post not found." });
     }
 
-    res.status(200).json({
-      success: true,
-      message: "Post deleted successfully.",
-    });
+    res.status(200).json({ success: true, message: "Post deleted successfully." });
   } catch (error) {
     console.error(error);
-
-    res.status(500).json({
-      success: false,
-      message: "Failed to delete post.",
-    });
+    res.status(500).json({ success: false, message: "Failed to delete post." });
   }
 };
