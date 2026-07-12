@@ -39,15 +39,21 @@ const escapeRegex = (value: string): string =>
 // Create Post
 export const createPost = async (req: Request, res: Response) => {
   try {
-    const result = await postsCollection.insertOne(req.body);
+    const postData = {
+      ...req.body,
+      publishedAt: new Date(),
+    };
+
+    const result = await postsCollection.insertOne(postData);
 
     res.status(201).json({
       success: true,
       message: "Post created successfully.",
       insertedId: result.insertedId,
+      publishedAt: postData.publishedAt,
     });
   } catch (error) {
-    console.error(error);
+    console.error("Failed to create post:", error);
 
     res.status(500).json({
       success: false,
@@ -55,7 +61,6 @@ export const createPost = async (req: Request, res: Response) => {
     });
   }
 };
-
 // Browse posts with search, filters, sorting, and pagination.
 export const getAllPosts = async (
   req: Request,
@@ -204,7 +209,9 @@ export const updatePost = async (req: Request, res: Response) => {
     const id = req.params.id as string;
 
     if (!ObjectId.isValid(id)) {
-      return res.status(400).json({ success: false, message: "Invalid post id." });
+      return res
+        .status(400)
+        .json({ success: false, message: "Invalid post id." });
     }
 
     const result = await postsCollection.updateOne(
@@ -213,10 +220,14 @@ export const updatePost = async (req: Request, res: Response) => {
     );
 
     if (result.matchedCount === 0) {
-      return res.status(404).json({ success: false, message: "Post not found." });
+      return res
+        .status(404)
+        .json({ success: false, message: "Post not found." });
     }
 
-    res.status(200).json({ success: true, message: "Post updated successfully." });
+    res
+      .status(200)
+      .json({ success: true, message: "Post updated successfully." });
   } catch (error) {
     console.error(error);
     res.status(500).json({ success: false, message: "Failed to update post." });
@@ -229,7 +240,9 @@ export const deletePost = async (req: Request, res: Response) => {
     const id = req.params.id as string;
 
     if (!ObjectId.isValid(id)) {
-      return res.status(400).json({ success: false, message: "Invalid post id." });
+      return res
+        .status(400)
+        .json({ success: false, message: "Invalid post id." });
     }
 
     const result = await postsCollection.updateOne(
@@ -238,10 +251,14 @@ export const deletePost = async (req: Request, res: Response) => {
     );
 
     if (result.matchedCount === 0) {
-      return res.status(404).json({ success: false, message: "Post not found." });
+      return res
+        .status(404)
+        .json({ success: false, message: "Post not found." });
     }
 
-    res.status(200).json({ success: true, message: "Post deleted successfully." });
+    res
+      .status(200)
+      .json({ success: true, message: "Post deleted successfully." });
   } catch (error) {
     console.error(error);
     res.status(500).json({ success: false, message: "Failed to delete post." });

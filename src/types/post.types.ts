@@ -16,6 +16,9 @@ export interface PostBook {
 export interface Post {
   _id?: ObjectId;
   sellerId: string;
+  sellerName: string;
+  sellerEmail: string;
+  title: string;
   type: ListingType;
   image?: string;
   district: string;
