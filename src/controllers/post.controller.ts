@@ -153,7 +153,7 @@ export const getMyPosts = async (req: Request, res: Response) => {
 
     res.status(200).json({
       success: true,
-      data: posts,
+      books: posts,
     });
   } catch (error) {
     console.error(error);
