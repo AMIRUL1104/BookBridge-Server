@@ -8,7 +8,8 @@ import {
   updatePost,
   deletePost,
 } from "../controllers/post.controller.js";
-
+import { verifyToken } from "../middleware/auth.middleware.js";
+import { verifyUser } from "../middleware/role.middleware.js";
 const router = Router();
 
 // Create Post
@@ -18,7 +19,7 @@ router.post("/", createPost);
 router.get("/", getAllPosts);
 
 // My Posts
-router.get("/my", getMyPosts);
+router.get("/my", verifyToken, verifyUser, getMyPosts);
 
 // Single Post
 router.get("/:id", getPostById);

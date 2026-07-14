@@ -4,7 +4,9 @@ import { client } from "./index.js";
 const db = client.db("BookBridgeDB");
 
 // Collections
-export const usersCollection = db.collection("users");
+export const userCollection = db.collection("user");
+
+export const sessionCollection = db.collection("session");
 
 export const postsCollection = db.collection<Post>("posts");
 
