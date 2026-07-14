@@ -6,6 +6,8 @@ const db = client.db("BookBridgeDB");
 // Collections
 export const userCollection = db.collection("user");
 
+export const userProfileCollection = db.collection("userProfile");
+
 export const sessionCollection = db.collection("session");
 
 export const postsCollection = db.collection<Post>("posts");
