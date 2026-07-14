@@ -4,6 +4,7 @@ import type { Filter, Sort } from "mongodb";
 
 import { postsCollection } from "../database/collections.js";
 import type { Post } from "../types/post.types.js";
+import type { AuthRequest } from "../types/auth.types.js";
 
 const DEFAULT_PAGE = 1;
 const DEFAULT_LIMIT = 20;
@@ -131,35 +132,29 @@ export const getAllPosts = async (
 };
 
 // Get My Posts . this api serve a seller all posts
-export const getMyPosts = async (req: Request, res: Response) => {
-  try {
-    console.log(req.headers.authorization);
-    // Better Auth middleware পরে req.user.id থেকে আসবে
-    const sellerId = getQueryValue(req.query.sellerId);
 
-    if (!sellerId) {
-      return res.status(400).json({
-        success: false,
-        message: "sellerId is required.",
-      });
-    }
+export const getMyPosts = async (req: AuthRequest, res: Response) => {
+  try {
+    const sellerId = req.user!._id;
 
     const posts = await postsCollection
       .find({
         sellerId,
         isDeleted: false,
       })
-      .sort({ publishedAt: -1 })
+      .sort({
+        publishedAt: -1,
+      })
       .toArray();
 
-    res.status(200).json({
+    return res.status(200).json({
       success: true,
       books: posts,
     });
   } catch (error) {
     console.error(error);
 
-    res.status(500).json({
+    return res.status(500).json({
       success: false,
       message: "Failed to fetch your posts.",
     });

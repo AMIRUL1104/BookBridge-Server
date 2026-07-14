@@ -13,7 +13,7 @@ import { verifyUser } from "../middleware/role.middleware.js";
 const router = Router();
 
 // Create Post
-router.post("/", createPost);
+router.post("/", verifyToken, verifyUser, createPost);
 
 // Browse Posts
 router.get("/", getAllPosts);
@@ -25,9 +25,9 @@ router.get("/my", verifyToken, verifyUser, getMyPosts);
 router.get("/:id", getPostById);
 
 // Update Post
-router.patch("/:id", updatePost);
+router.patch("/:id", verifyToken, verifyUser, updatePost);
 
 // Delete Post
-router.delete("/:id", deletePost);
+router.delete("/:id", verifyToken, deletePost);
 
 export default router;
