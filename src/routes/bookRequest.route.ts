@@ -1,6 +1,7 @@
 import { Router } from "express";
 import {
   acceptBookRequest,
+  checkBookRequest,
   createBookRequest,
   deleteBookRequest,
   getReceivedRequests,
@@ -18,6 +19,8 @@ router.get("/sent", getSentRequests);
 
 // Requests Received On My Posts
 router.get("/received", getReceivedRequests);
+
+router.get("/check", checkBookRequest);
 
 // Accept Request
 router.patch("/:id/accept", acceptBookRequest);

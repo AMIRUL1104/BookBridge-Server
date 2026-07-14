@@ -133,6 +133,7 @@ export const getAllPosts = async (
 // Get My Posts . this api serve a seller all posts
 export const getMyPosts = async (req: Request, res: Response) => {
   try {
+    console.log(req.headers.authorization);
     // Better Auth middleware পরে req.user.id থেকে আসবে
     const sellerId = getQueryValue(req.query.sellerId);
 

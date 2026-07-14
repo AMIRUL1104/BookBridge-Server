@@ -33,4 +33,5 @@ export interface BookRequest {
   // Timestamps
   requestDate: Date;
   updatedAt?: Date;
+  createdAt: Date;
 }

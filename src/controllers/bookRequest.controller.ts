@@ -1,29 +1,143 @@
 import type { Request, Response } from "express";
+import { bookRequestsCollection } from "../database/collections.js";
 
 // Send Book Request
 export const createBookRequest = async (req: Request, res: Response) => {
   try {
-    // TODO
+    const postData = {
+      ...req.body,
+      createdAt: new Date(),
+      updatedAt: new Date(),
+    };
+
+    const result = await bookRequestsCollection.insertOne(postData);
+
+    res.status(201).json({
+      success: true,
+      message: "Request Sent Successfully.",
+      insertedId: result.insertedId,
+      publishedAt: postData.publishedAt,
+    });
   } catch (error) {
-    // TODO
+    console.error("Failed to create post:", error);
+
+    res.status(500).json({
+      success: false,
+      message: "Failed to create post.",
+    });
   }
 };
 
 // Get My Sent Requests
 export const getSentRequests = async (req: Request, res: Response) => {
   try {
-    // TODO
+    const requesterId = req.query.requesterId as string;
+
+    if (!requesterId) {
+      return res.status(400).json({
+        success: false,
+        message: "requesterId is required.",
+      });
+    }
+
+    const requests = await bookRequestsCollection
+      .find({
+        requesterId,
+      })
+      .toArray();
+
+    res.status(200).json({
+      success: true,
+      requests,
+    });
   } catch (error) {
-    // TODO
+    console.error("Failed to get sent requests:", error);
+
+    res.status(500).json({
+      success: false,
+      message: "Failed to get sent requests.",
+    });
   }
 };
 
 // Get Requests Received On My Posts
 export const getReceivedRequests = async (req: Request, res: Response) => {
   try {
-    // TODO
+    const sellerId = req.query.sellerId as string;
+
+    if (!sellerId) {
+      return res.status(400).json({
+        success: false,
+        message: "sellerId is required.",
+      });
+    }
+
+    const requests = await bookRequestsCollection
+      .find({
+        sellerId,
+      })
+      .toArray();
+
+    res.status(200).json({
+      success: true,
+      requests,
+    });
   } catch (error) {
-    // TODO
+    console.error("Failed to get received requests:", error);
+
+    res.status(500).json({
+      success: false,
+      message: "Failed to get received requests.",
+    });
+  }
+};
+
+// Check Book Request
+export const checkBookRequest = async (req: Request, res: Response) => {
+  try {
+    const { postId, requesterId, sellerId } = req.query;
+
+    if (!postId || !requesterId || !sellerId) {
+      return res.status(400).json({
+        success: false,
+        message: "postId, requesterId and sellerId are required.",
+      });
+    }
+
+    // User cannot request their own post
+    if (requesterId === sellerId) {
+      return res.status(200).json({
+        success: true,
+        canRequest: false,
+        reason: "own_post",
+      });
+    }
+
+    // Check if a request already exists
+    const existingRequest = await bookRequestsCollection.findOne({
+      postId: postId as string,
+      requesterId: requesterId as string,
+    });
+
+    if (existingRequest) {
+      return res.status(200).json({
+        success: true,
+        canRequest: false,
+        reason: "already_requested",
+      });
+    }
+
+    return res.status(200).json({
+      success: true,
+      canRequest: true,
+    });
+  } catch (error) {
+    console.error("Failed to check book request:", error);
+
+    return res.status(500).json({
+      success: false,
+      message: "Failed to check book request.",
+    });
   }
 };
 
