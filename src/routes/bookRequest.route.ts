@@ -31,6 +31,6 @@ router.patch("/:id/accept", verifyToken, verifyUser, acceptBookRequest);
 router.patch("/:id/reject", verifyToken, verifyUser, rejectBookRequest);
 
 // Cancel/Delete Request
-router.delete("/:id", verifyToken, verifyUser, deleteBookRequest);
+router.patch("/:id/cancel", verifyToken, verifyUser, deleteBookRequest);
 
 export default router;

@@ -1,6 +1,6 @@
 import type { ObjectId } from "mongodb";
 
-export type RequestStatus = "pending" | "accepted" | "rejected";
+export type RequestStatus = "pending" | "accepted" | "rejected" | "cancelled";
 
 export interface BookRequest {
   _id?: ObjectId;
