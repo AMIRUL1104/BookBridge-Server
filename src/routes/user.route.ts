@@ -22,7 +22,7 @@ router.get("/", verifyToken, getUserProfile);
 router.get("/admin", verifyToken, getUsers);
 
 // Update User by profile data id
-router.patch("/", verifyToken, verifyUser, updateUser);
+router.patch("/", verifyToken, updateUser);
 
 // Delete User by userId
 router.delete("/:id", verifyToken, verifyUser, deleteUser);
