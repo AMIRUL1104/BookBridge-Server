@@ -1,5 +1,9 @@
 import type { Request, Response } from "express";
-import { bookRequestsCollection } from "../database/collections.js";
+import {
+  bookRequestsCollection,
+  postsCollection,
+} from "../database/collections.js";
+
 import type { AuthRequest } from "../types/auth.types.js";
 import { ObjectId } from "mongodb";
 
@@ -144,34 +148,80 @@ export const checkBookRequest = async (req: Request, res: Response) => {
 };
 
 // Accept Book Request
+// Accept Book Request
 export const acceptBookRequest = async (req: AuthRequest, res: Response) => {
   try {
     const sellerId = req.user!._id;
     const requestId = req.params.id as string;
 
-    const query = {
-      sellerId,
+    // Find the selected request
+    const request = await bookRequestsCollection.findOne({
       _id: new ObjectId(requestId),
-    };
+      sellerId,
+    });
 
-    const update = { $set: { status: "accepted" } };
-    const result = await bookRequestsCollection.updateOne(query, update);
+    if (!request) {
+      return res.status(404).json({
+        success: false,
+        message: "Book request not found.",
+      });
+    }
 
-    if (result.modifiedCount === 0) {
+    // Accept the selected request
+    const acceptedResult = await bookRequestsCollection.updateOne(
+      {
+        _id: new ObjectId(requestId),
+        sellerId,
+      },
+      {
+        $set: {
+          status: "accepted",
+        },
+      },
+    );
+
+    if (acceptedResult.modifiedCount === 0) {
       return res.status(400).json({
         success: false,
         message: "Failed to accept book request.",
       });
     }
 
-    res.status(200).json({
+    // Mark the related post as sold
+    await postsCollection.updateOne(
+      {
+        _id: new ObjectId(request.postId),
+      },
+      {
+        $set: {
+          status: "sold",
+          acceptedRequestId: requestId,
+        },
+      },
+    );
+
+    // Cancel all other pending requests for the same post
+    await bookRequestsCollection.updateMany(
+      {
+        postId: request.postId,
+        _id: { $ne: new ObjectId(requestId) },
+        status: "pending",
+      },
+      {
+        $set: {
+          status: "cancelled",
+        },
+      },
+    );
+
+    return res.status(200).json({
       success: true,
-      message: "Request Accepted Successfully.",
+      message: "Book request accepted successfully.",
     });
   } catch (error) {
     console.error("Failed to accept book request:", error);
 
-    res.status(500).json({
+    return res.status(500).json({
       success: false,
       message: "Failed to accept book request.",
     });
@@ -217,18 +267,57 @@ export const deleteBookRequest = async (req: AuthRequest, res: Response) => {
   try {
     const requestId = req.params.id as string;
 
+    // Find the selected request
+    const request = await bookRequestsCollection.findOne({
+      _id: new ObjectId(requestId),
+    });
+
+    if (!request) {
+      return res.status(404).json({
+        success: false,
+        message: "Book request not found.",
+      });
+    }
+
     const query = {
       _id: new ObjectId(requestId),
     };
     const update = { $set: { status: "cancelled" } };
     const result = await bookRequestsCollection.updateOne(query, update);
 
-    if (result.matchedCount === 0) {
+    if (result.modifiedCount === 0) {
       return res.status(400).json({
         success: false,
         message: " Failed to cancel book request.",
       });
     }
+
+    // Mark the related post as sold
+    await postsCollection.updateOne(
+      {
+        _id: new ObjectId(request.postId),
+      },
+      {
+        $set: {
+          status: "available",
+          acceptedRequestId: null,
+        },
+      },
+    );
+
+    // Cancel all other pending requests for the same post
+    await bookRequestsCollection.updateMany(
+      {
+        postId: request.postId,
+        _id: { $ne: new ObjectId(requestId) },
+        status: "cancelled",
+      },
+      {
+        $set: {
+          status: "pending",
+        },
+      },
+    );
 
     res.status(200).json({
       success: true,
