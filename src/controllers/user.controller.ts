@@ -80,15 +80,19 @@ export const getUserProfile = async (req: AuthRequest, res: Response) => {
 };
 
 // Get All Users for admin . this api will be call when admin search, filter, sort, and pagination
+
 export const getUsers = async (req: Request, res: Response) => {
   try {
-    const page = req.query.page as string;
-    const limit = req.query.limit as string;
-    const search = req.query.search as string;
-    const sort = req.query.sort as string;
+    const page = parseInt((req.query.page as string) || "1", 10);
+    const limit = parseInt((req.query.limit as string) || "10", 10);
+    const search = (req.query.search as string) || "";
+    const sort = (req.query.sort as string) || "newest";
+    const role = (req.query.role as string) || "";
+    const status = (req.query.status as string) || "";
 
     const query: Record<string, unknown> = {};
 
+    // Search: fullName or email
     if (search) {
       query.$or = [
         { fullName: { $regex: search, $options: "i" } },
@@ -96,15 +100,26 @@ export const getUsers = async (req: Request, res: Response) => {
       ];
     }
 
-    if (sort) {
-      query.updatedAt = sort === "newest" ? -1 : 1;
+    // Role filter: "admin" | "user"
+    if (role && role !== "all") {
+      query.role = role;
     }
+
+    // Status filter: "active" | "suspended"
+    // Assumes UserProfile has an `isBlocked` boolean field
+    // if (status && status !== "all") {
+    //   query.isBlocked = status === "suspended";
+    // }
+
+    // Sort direction — goes into .sort(), NOT into the query object
+    const sortDirection = sort === "oldest" ? 1 : -1;
 
     const [users, total] = await Promise.all([
       userProfileCollection
         .find(query)
-        .skip((parseInt(page) - 1) * parseInt(limit))
-        .limit(parseInt(limit))
+        .sort({ updatedAt: sortDirection })
+        .skip((page - 1) * limit)
+        .limit(limit)
         .toArray(),
       userProfileCollection.countDocuments(query),
     ]);
@@ -113,12 +128,11 @@ export const getUsers = async (req: Request, res: Response) => {
       success: true,
       users,
       total,
-      totalPages: Math.max(1, Math.ceil(total / parseInt(limit))),
-      currentPage: page,
+      totalPages: Math.max(1, Math.ceil(total / limit)),
+      currentPage: page, // now a number, not a string
     });
   } catch (error) {
     console.error("Failed to get users:", error);
-
     res.status(500).json({
       success: false,
       message: "Failed to get users.",

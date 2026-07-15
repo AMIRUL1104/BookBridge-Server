@@ -199,6 +199,36 @@ export const getPostById = async (req: Request, res: Response) => {
   }
 };
 
+export const getFeaturedPosts = async (req: Request, res: Response) => {
+  try {
+    // const query = {
+    //   isDeleted: { $ne: true },
+    //   status: "available",
+    // };
+
+    const posts = await postsCollection
+      .find({
+        isDeleted: { $ne: true },
+        status: "available",
+      })
+      .sort({ createdAt: -1 })
+      .limit(8)
+      .toArray();
+
+    res.status(200).json({
+      success: true,
+      data: posts,
+    });
+  } catch (error) {
+    console.error("Failed to fetch featured posts:", error);
+
+    res.status(500).json({
+      success: false,
+      message: "Failed to fetch featured posts.",
+    });
+  }
+};
+
 // Update Post
 export const updatePost = async (req: Request, res: Response) => {
   try {
