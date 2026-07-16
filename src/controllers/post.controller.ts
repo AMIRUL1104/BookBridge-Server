@@ -93,7 +93,10 @@ export const getAllPosts = async (
     }
 
     if (category) {
-      query.category = category;
+      query.category = {
+        $regex: `^${escapeRegex(category)}$`,
+        $options: "i",
+      };
     }
 
     if (condition) {
