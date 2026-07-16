@@ -8,9 +8,10 @@ import {
   updatePost,
   deletePost,
   getFeaturedPosts,
+  getAllPostsForAdmin,
 } from "../controllers/post.controller.js";
 import { verifyToken } from "../middleware/auth.middleware.js";
-import { verifyUser } from "../middleware/role.middleware.js";
+import { verifyAdmin, verifyUser } from "../middleware/role.middleware.js";
 const router = Router();
 
 // Create Post
@@ -24,6 +25,10 @@ router.get("/my", verifyToken, verifyUser, getMyPosts);
 
 // Get Featured Posts
 router.get("/featured", getFeaturedPosts);
+
+// posts for admin
+router.get("/admin", verifyToken, verifyAdmin, getAllPostsForAdmin);
+
 // Single Post
 router.get("/:id", getPostById);
 

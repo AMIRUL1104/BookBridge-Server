@@ -290,3 +290,20 @@ export const deletePost = async (req: Request, res: Response) => {
     res.status(500).json({ success: false, message: "Failed to delete post." });
   }
 };
+
+export const getAllPostsForAdmin = async (req: Request, res: Response) => {
+  try {
+    const result = await postsCollection.find().toArray();
+    res.status(200).json({
+      success: true,
+      data: result,
+    });
+  } catch (error) {
+    console.error("Failed to fetch posts:", error);
+
+    res.status(500).json({
+      success: false,
+      message: "Failed to fetch posts.",
+    });
+  }
+};
